@@ -1,0 +1,224 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────────────────
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum Plan {
+  FREE
+  PRO
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  INACTIVE
+  CANCELLED
+  PAST_DUE
+}
+
+enum MessageRole {
+  user
+  assistant
+  tool
+  system
+}
+
+enum ActionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+// ─────────────────────────────────────────────────────────────────
+// USER
+// ─────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String?  @map("password_hash")
+  googleId     String?  @unique @map("google_id")
+  avatar       String?
+  role         Role     @default(USER)
+  plan         Plan     @default(FREE)
+  isVerified   Boolean  @default(false) @map("is_verified")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  oauthTokens   OAuthToken[]
+  conversations Conversation[]
+  aiActionLogs  AiActionLog[]
+  subscription  Subscription?
+  contacts      Contact[]
+  usageStats    UsageStat[]
+  whatsappLogs  WhatsappLog[]
+
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// OAUTH TOKENS (per user, per provider)
+// ─────────────────────────────────────────────────────────────────
+
+model OAuthToken {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  provider     String   // "google"
+  accessToken  String   @map("access_token")   // AES-256 encrypted
+  refreshToken String?  @map("refresh_token")  // AES-256 encrypted
+  scope        String?
+  expiresAt    DateTime? @map("expires_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@map("oauth_tokens")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// CONVERSATIONS & MESSAGES
+// ─────────────────────────────────────────────────────────────────
+
+model Conversation {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  title     String    @default("New Chat")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@map("conversations")
+}
+
+model Message {
+  id             String      @id @default(uuid())
+  conversationId String      @map("conversation_id")
+  role           MessageRole
+  content        String
+  metadata       Json?       // tool call data, function results, etc.
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// AI ACTION LOGS
+// ─────────────────────────────────────────────────────────────────
+
+model AiActionLog {
+  id         String       @id @default(uuid())
+  userId     String       @map("user_id")
+  actionType String       @map("action_type") // "send_email", "create_event", etc.
+  payload    Json?        // action parameters
+  result     Json?        // action result
+  status     ActionStatus @default(PENDING)
+  error      String?
+  createdAt  DateTime     @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("ai_action_logs")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// SUBSCRIPTIONS
+// ─────────────────────────────────────────────────────────────────
+
+model Subscription {
+  id                     String             @id @default(uuid())
+  userId                 String             @unique @map("user_id")
+  plan                   Plan               @default(FREE)
+  razorpaySubscriptionId String?            @map("razorpay_subscription_id")
+  razorpayOrderId        String?            @map("razorpay_order_id")
+  razorpayPaymentId      String?            @map("razorpay_payment_id")
+  status                 SubscriptionStatus @default(ACTIVE)
+  currentPeriodStart     DateTime?          @map("current_period_start")
+  currentPeriodEnd       DateTime?          @map("current_period_end")
+  createdAt              DateTime           @default(now()) @map("created_at")
+  updatedAt              DateTime           @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// CONTACTS
+// ─────────────────────────────────────────────────────────────────
+
+model Contact {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  name      String
+  email     String?
+  phone     String?
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("contacts")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// USAGE STATS (per user, per day)
+// ─────────────────────────────────────────────────────────────────
+
+model UsageStat {
+  id              String   @id @default(uuid())
+  userId          String   @map("user_id")
+  date            DateTime @default(now()) @db.Date
+  chatCount       Int      @default(0) @map("chat_count")
+  emailSent       Int      @default(0) @map("email_sent")
+  meetingsCreated Int      @default(0) @map("meetings_created")
+  driveActions    Int      @default(0) @map("drive_actions")
+  sheetsActions   Int      @default(0) @map("sheets_actions")
+  docsActions     Int      @default(0) @map("docs_actions")
+  whatsappSent    Int      @default(0) @map("whatsapp_sent")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@map("usage_stats")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// WHATSAPP LOGS
+// ─────────────────────────────────────────────────────────────────
+
+model WhatsappLog {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  to        String
+  message   String
+  status    String   @default("sent")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("whatsapp_logs")
+}

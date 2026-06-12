@@ -1,0 +1,24 @@
+{
+  "name": "ai-saas",
+  "version": "1.0.0",
+  "description": "AI SaaS — Full Stack Monorepo",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently --kill-others-on-fail --prefix-colors \"bgBlue.bold,bgMagenta.bold\" --names \"BACKEND,FRONTEND\" \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "kill": "npx kill-port 5000 5173",
+    "fresh": "npx kill-port 5000 5173 & timeout 2 & npm run dev",
+    "install:all": "npm install --prefix backend && npm install --prefix frontend",
+    "db:migrate": "npm run db:migrate --prefix backend",
+    "db:push": "npm run db:push --prefix backend",
+    "db:studio": "npm run db:studio --prefix backend",
+    "docker:up": "docker-compose -f backend/docker-compose.yml up -d",
+    "docker:down": "docker-compose -f backend/docker-compose.yml down",
+    "docker:build": "docker-compose -f backend/docker-compose.yml up --build",
+    "docker:logs": "docker-compose -f backend/docker-compose.yml logs -f",
+    "docker:db": "docker-compose -f backend/docker-compose.yml up postgres -d"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "kill-port": "^2.0.1"
+  }
+}
