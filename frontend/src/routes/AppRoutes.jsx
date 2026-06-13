@@ -11,6 +11,7 @@ import Chat from '../pages/Chat';
 import Services from '../pages/Services';
 import Subscription from '../pages/Subscription';
 import Settings from '../pages/Settings';
+import WhatsApp from '../pages/WhatsApp';
 
 const AppRoutes = () => {
   return (
@@ -33,6 +34,7 @@ const AppRoutes = () => {
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="chat" element={<Chat />} />
         <Route path="services" element={<Services />} />
+        <Route path="whatsapp" element={<WhatsApp />} />
         <Route path="subscription" element={<Subscription />} />
         <Route path="settings" element={<Settings />} />
       </Route>

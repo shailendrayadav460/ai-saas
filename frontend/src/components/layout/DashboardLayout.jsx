@@ -1,6 +1,7 @@
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
+import { useAuth } from '../../context/AuthContext';
 
 const PAGE_TITLES = {
   '/dashboard': 'Dashboard',
@@ -12,7 +13,20 @@ const PAGE_TITLES = {
 
 const DashboardLayout = () => {
   const { pathname } = useLocation();
+  const { user } = useAuth();
   const title = PAGE_TITLES[pathname] || 'AI SaaS';
+
+  // If the user has not confirmed their subscription plan,
+  // do not render the Sidebar and Navbar layout. Render only the raw content (Subscription card).
+  if (user && !user.hasConfirmedPlan) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center p-4 overflow-y-auto">
+        <div className="w-full">
+          <Outlet />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen overflow-hidden">

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Check, Zap, Shield, Star, CreditCard } from 'lucide-react';
+import { Check, Zap, Shield, Star, CreditCard, Eye } from 'lucide-react';
 import { paymentAPI } from '../api/payment.api';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/common/Button';
@@ -30,9 +31,25 @@ const PLAN_FEATURES = {
 
 const Subscription = () => {
   const { user, refreshUser } = useAuth();
+  const navigate = useNavigate();
   const [subscription, setSubscription] = useState(null);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
+  const [confirmingFree, setConfirmingFree] = useState(false);
+
+  const handleConfirmFree = async () => {
+    setConfirmingFree(true);
+    try {
+      await paymentAPI.confirmFree();
+      toast.success('🎉 Free plan activated!');
+      await refreshUser();
+      navigate('/dashboard');
+    } catch (err) {
+      toast.error('Failed to confirm plan');
+    } finally {
+      setConfirmingFree(false);
+    }
+  };
 
   useEffect(() => {
     paymentAPI.getSubscription()
@@ -70,6 +87,7 @@ const Subscription = () => {
               await refreshUser();
               const sub = await paymentAPI.getSubscription();
               setSubscription(sub);
+              navigate('/dashboard');
             } catch {
               toast.error('Payment verification failed');
             }
@@ -134,7 +152,19 @@ const Subscription = () => {
               </li>
             ))}
           </ul>
-          <Button variant="secondary" disabled={!isPro}>Current Plan</Button>
+          {(!user?.hasConfirmedPlan && !isPro) ? (
+            <Button
+              className="w-full"
+              onClick={handleConfirmFree}
+              loading={confirmingFree}
+            >
+              Get Started with Free
+            </Button>
+          ) : (
+            <Button variant="secondary" disabled={!isPro} onClick={handleConfirmFree} loading={confirmingFree}>
+              {!isPro ? 'Current Plan' : 'Downgrade to Free'}
+            </Button>
+          )}
         </motion.div>
 
         {/* Pro */}
@@ -156,7 +186,7 @@ const Subscription = () => {
               <h3 className="text-lg font-bold text-white">Pro</h3>
               {isPro && <Badge variant="pro"><Zap size={10} /> Active</Badge>}
             </div>
-            <p className="text-3xl font-bold gradient-text">₹999 <span className="text-sm font-normal text-white/40">/month</span></p>
+            <p className="text-3xl font-bold gradient-text">₹250 <span className="text-sm font-normal text-white/40">/month</span></p>
           </div>
 
           <ul className="space-y-2.5 flex-1">
@@ -177,7 +207,7 @@ const Subscription = () => {
               loading={paying}
               leftIcon={<CreditCard size={16} />}
             >
-              Upgrade to Pro — ₹999/month
+              Upgrade to Pro — ₹250/month
             </Button>
           ) : (
             <Button variant="secondary" disabled className="w-full">
@@ -193,6 +223,41 @@ const Subscription = () => {
         <Shield size={16} className="text-primary-400 shrink-0" />
         <p>Payments are processed securely by Razorpay. We never store your card details.</p>
       </div>
+
+      {/* Billing/Payment History */}
+      {subscription && (subscription.razorpayPaymentId || subscription.razorpayOrderId) && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass rounded-2xl p-6 space-y-4"
+        >
+          <h3 className="text-sm font-semibold text-white">Payment & Billing History</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-white/10 text-white/50">
+                  <th className="py-2.5 font-medium">Plan</th>
+                  <th className="py-2.5 font-medium">Order ID</th>
+                  <th className="py-2.5 font-medium">Payment ID</th>
+                  <th className="py-2.5 font-medium">Status</th>
+                  <th className="py-2.5 font-medium">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-white/5 text-white/80">
+                  <td className="py-3 font-semibold text-white">{subscription.plan}</td>
+                  <td className="py-3 font-mono text-white/40">{subscription.razorpayOrderId || '—'}</td>
+                  <td className="py-3 font-mono text-primary-400 font-medium">{subscription.razorpayPaymentId || '—'}</td>
+                  <td className="py-3">
+                    <Badge variant="success">Active</Badge>
+                  </td>
+                  <td className="py-3 font-semibold text-white">₹250.00</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 };

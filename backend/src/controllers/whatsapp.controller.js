@@ -4,16 +4,23 @@ const { successResponse, errorResponse } = require('../utils/helpers');
 
 const sendMessage = async (req, res, next) => {
   try {
-    const { to, message } = req.body;
-    const result = await whatsappService.sendMessage(req.user.id, to, message);
+    const { to, message, mediaUrl } = req.body;
+    
+    if (req.user.plan !== 'PRO') {
+      return errorResponse(res, 'This feature requires a PRO subscription', 403);
+    }
+    
+    const result = await whatsappService.sendMessage(req.user.id, to, message, mediaUrl);
     return successResponse(res, result, 'WhatsApp message sent');
   } catch (err) {
     next(err);
   }
 };
-
 const getLogs = async (req, res, next) => {
   try {
+    if (req.user.plan !== 'PRO') {
+      return errorResponse(res, 'This feature requires a PRO subscription', 403);
+    }
     const logs = await whatsappService.getLogs(req.user.id);
     return successResponse(res, logs);
   } catch (err) {
@@ -54,4 +61,20 @@ const deleteContact = async (req, res, next) => {
   }
 };
 
-module.exports = { sendMessage, getLogs, getContacts, addContact, deleteContact };
+const handleWebhook = async (req, res, next) => {
+  try {
+    const { From, To, Body, MediaUrl0, ProfileName } = req.body;
+
+    if (From && To) {
+      await whatsappService.handleIncomingMessage(From, To, Body || '', MediaUrl0, ProfileName);
+    }
+
+    res.set('Content-Type', 'text/xml');
+    res.send('<Response></Response>');
+  } catch (err) {
+    console.error('Twilio Webhook Error:', err);
+    res.status(500).send('Server Error');
+  }
+};
+
+module.exports = { sendMessage, getLogs, getContacts, addContact, deleteContact, handleWebhook };

@@ -25,7 +25,7 @@ const register = async (req, res, next) => {
 
     const user = await prisma.user.create({
       data: { name, email, passwordHash },
-      select: { id: true, name: true, email: true, role: true, plan: true, avatar: true },
+      select: { id: true, name: true, email: true, role: true, plan: true, hasConfirmedPlan: true, avatar: true },
     });
 
     // Create free subscription record
@@ -60,7 +60,7 @@ const login = async (req, res, next) => {
       return errorResponse(res, 'Invalid email or password', 401);
     }
 
-    const safeUser = { id: user.id, name: user.name, email: user.email, role: user.role, plan: user.plan, avatar: user.avatar };
+    const safeUser = { id: user.id, name: user.name, email: user.email, role: user.role, plan: user.plan, hasConfirmedPlan: user.hasConfirmedPlan, avatar: user.avatar };
     const accessToken = signAccessToken({ id: user.id, email: user.email, role: user.role });
     const refreshToken = signRefreshToken({ id: user.id });
 
@@ -92,6 +92,7 @@ const getMe = async (req, res, next) => {
         avatar: true,
         role: true,
         plan: true,
+        hasConfirmedPlan: true,
         isVerified: true,
         createdAt: true,
         oauthTokens: { select: { provider: true, scope: true, expiresAt: true } },

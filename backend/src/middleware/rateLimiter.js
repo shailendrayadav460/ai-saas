@@ -1,9 +1,11 @@
 const rateLimit = require('express-rate-limit');
 
+const isDev = process.env.NODE_ENV === 'development';
+
 const createLimiter = (windowMs, max, message) =>
   rateLimit({
     windowMs,
-    max,
+    max: isDev ? 100000 : max, // Raise limit to 100k in development
     message: { success: false, message },
     standardHeaders: true,
     legacyHeaders: false,

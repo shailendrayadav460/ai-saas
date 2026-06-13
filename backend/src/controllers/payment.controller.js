@@ -14,7 +14,7 @@ const PLANS = [
   {
     id: 'pro',
     name: 'Pro',
-    price: 999,
+    price: 250,
     currency: 'INR',
     features: [
       'Unlimited AI messages',
@@ -47,7 +47,7 @@ const createOrder = async (req, res, next) => {
     const order = await razorpayService.createOrder({
       amount: plan.price,
       currency: 'INR',
-      receipt: `sub_${req.user.id}_${Date.now()}`,
+      receipt: `sub_${req.user.id.substring(0,8)}_${Date.now()}`,
     });
 
     return successResponse(res, {
@@ -66,13 +66,17 @@ const verifyPayment = async (req, res, next) => {
   try {
     const { orderId, paymentId, signature, planId } = req.body;
 
+    if (!orderId || !paymentId || !signature) {
+      return errorResponse(res, 'Missing payment verification details', 400);
+    }
+
     const isValid = razorpayService.verifyPayment({ orderId, paymentId, signature });
     if (!isValid) return errorResponse(res, 'Invalid payment signature', 400);
 
-    // Update user plan and subscription
+    // Update user plan, confirm plan, and update subscription
     await prisma.user.update({
       where: { id: req.user.id },
-      data: { plan: 'PRO' },
+      data: { plan: 'PRO', hasConfirmedPlan: true },
     });
 
     await prisma.subscription.upsert({
@@ -102,6 +106,26 @@ const verifyPayment = async (req, res, next) => {
   }
 };
 
+// ─── Confirm Free Plan ──────────────────────────────────────────────
+const confirmFree = async (req, res, next) => {
+  try {
+    await prisma.user.update({
+      where: { id: req.user.id },
+      data: { plan: 'FREE', hasConfirmedPlan: true },
+    });
+
+    await prisma.subscription.upsert({
+      where: { userId: req.user.id },
+      update: { plan: 'FREE', status: 'ACTIVE' },
+      create: { userId: req.user.id, plan: 'FREE', status: 'ACTIVE' },
+    });
+
+    return successResponse(res, { plan: 'FREE', hasConfirmedPlan: true }, 'Free plan confirmed.');
+  } catch (err) {
+    next(err);
+  }
+};
+
 // ─── Get Subscription ──────────────────────────────────────────────
 const getSubscription = async (req, res, next) => {
   try {
@@ -114,4 +138,4 @@ const getSubscription = async (req, res, next) => {
   }
 };
 
-module.exports = { getPlans, createOrder, verifyPayment, getSubscription };
+module.exports = { getPlans, createOrder, verifyPayment, confirmFree, getSubscription };

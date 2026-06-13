@@ -57,6 +57,7 @@ model User {
   avatar       String?
   role         Role     @default(USER)
   plan         Plan     @default(FREE)
+  hasConfirmedPlan Boolean  @default(false) @map("has_confirmed_plan")
   isVerified   Boolean  @default(false) @map("is_verified")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
@@ -214,7 +215,10 @@ model WhatsappLog {
   id        String   @id @default(uuid())
   userId    String   @map("user_id")
   to        String
+  from      String?
   message   String
+  mediaUrl  String?  @map("media_url")
+  direction String   @default("OUTBOUND")
   status    String   @default("sent")
   createdAt DateTime @default(now()) @map("created_at")
 
